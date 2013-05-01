@@ -46,6 +46,11 @@ if ( defined( 'WP_CLI' ) && WP_CLI ) {
                 return;
             }
             
+            $bad_image = array(44846, 42468, 24507, 19306, 17999, 13919, 12972, 10388);
+            if(in_array($image->ID, $bad_image)) return;
+
+            echo "Starting {$image->ID}\n";
+
             $fullsizepath = get_attached_file( $image->ID );
             
             if ( false === $fullsizepath || !file_exists( $fullsizepath ) ) {
