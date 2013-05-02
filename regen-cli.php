@@ -12,28 +12,37 @@ if ( defined( 'WP_CLI' ) && WP_CLI ) {
     class RegenThumbs extends WP_CLI_Command
     {
         var $errors = false;
-        
-        public function __construct()
+
+        /**
+         * @synopsis [<id>]
+         */
+        function process($args, $assoc_args)
         {
             global $wpdb;
-            
-            if ( !$images = $wpdb->get_results( "SELECT ID FROM $wpdb->posts WHERE post_type = 'attachment' AND post_mime_type LIKE 'image/%' ORDER BY ID DESC" ) ) {
-                WP_CLI::error( "Unable to find any images. Are you sure some exist?" );
-                return;
+
+            list($id) = $args;
+
+            if(!$id){
+                if ( !$images = $wpdb->get_results( "SELECT ID FROM $wpdb->posts WHERE post_type = 'attachment' AND post_mime_type LIKE 'image/%' ORDER BY ID DESC" ) ) {
+                    WP_CLI::error( "Unable to find any images. Are you sure some exist?" );
+                    return;
+                }
+
+                WP_CLI::line( 'Found ' . count( $images ) . ' pictures to regenerate!' );
+
+                foreach ( $images as $image )
+                    $this->process_single( $image->ID );
+
+                if ( $this->errors )
+                    WP_CLI::error( 'Finished regenerating images - however, there were some errors throughout.' );
+                else
+                    WP_CLI::success( 'Finished - without any errors either!' );
+            } else {
+                $this->process_single($id);
             }
-            
-            WP_CLI::line( 'Found ' . count( $images ) . ' pictures to regenerate!' );
-            
-            foreach ( $images as $image )
-                $this->process( $image->ID );
-            
-            if ( $this->errors )
-                WP_CLI::error( 'Finished regenerating images - however, there were some errors throughout.' );
-            else
-                WP_CLI::success( 'Finished - without any errors either!' );
         }
         
-        function process( $id )
+        private function process_single( $id )
         {
             // Don't break the JSON result
             @error_reporting( 0 );
@@ -49,9 +58,9 @@ if ( defined( 'WP_CLI' ) && WP_CLI ) {
             $bad_image = array(44846, 42468, 24507, 19306, 17999, 13919, 12972, 10388);
             if(in_array($image->ID, $bad_image)) return;
 
-            echo "Starting {$image->ID}\n";
-
             $fullsizepath = get_attached_file( $image->ID );
+
+            echo "Starting {$image->ID} - $fullsizepath\n";
             
             if ( false === $fullsizepath || !file_exists( $fullsizepath ) ) {
                 $this->errors = true;
@@ -80,7 +89,7 @@ if ( defined( 'WP_CLI' ) && WP_CLI ) {
             $imageName = sprintf( "%s-", $dirPath[ count( $dirPath ) - 1 ] );
             unset( $dirPath[ count( $dirPath ) - 1 ] );
             $dirPath = sprintf( "%s%s", implode( DIRECTORY_SEPARATOR, $dirPath ), DIRECTORY_SEPARATOR );
-            
+
             // Read and delete files
             $dir   = opendir( $dirPath );
             $files = array();
